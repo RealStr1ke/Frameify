@@ -1,0 +1,4 @@
+exports/*
+testing/*
+node_modules/*
+covers/*
