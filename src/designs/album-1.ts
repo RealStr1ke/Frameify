@@ -97,10 +97,10 @@ export class Album1Design extends PosterDesign<AlbumData> {
 		}
 
 		const trackTitles = allTracks.map(track => this.cleanTrackTitle(track.title));
-		
+
 		// Calculate the actual track listing boundary
 		const trackBoundary = this.calculateTrackListingBoundary(ctx, trackTitles, config.margin, 1725, 62);
-		
+
 		// Calculate dynamic max width for album info based on track boundary
 		// Add a 50px gap between track listing and album info
 		const albumInfoMaxWidth = rightX - trackBoundary - 50;
@@ -134,7 +134,7 @@ export class Album1Design extends PosterDesign<AlbumData> {
 		_lineHeight: number,
 	): number {
 		ctx.font = 'bold 52px Ubuntu';
-		
+
 		const gapBetweenColumns = 50;
 		const maxColumnWidth = (sectionWidth - gapBetweenColumns) / 2;
 
@@ -149,7 +149,7 @@ export class Album1Design extends PosterDesign<AlbumData> {
 
 		// Calculate second column position and width
 		const secondColumnX = startX + Math.min(maxFirstColumnWidth, maxColumnWidth) + gapBetweenColumns;
-		
+
 		// Find longest track in second column
 		let maxSecondColumnWidth = 0;
 		for (let i = 10; i < 20 && i < tracks.length; i++) {
