@@ -75,7 +75,7 @@ export class CoverFetcher {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
-					'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:142.0) Gecko/20100101 Firefox/142.0',
+					'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0',
 					'Accept': '*/*',
 					'Accept-Language': 'en-US,en;q=0.5',
 					'x-page-query': '',

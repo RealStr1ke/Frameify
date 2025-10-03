@@ -95,10 +95,11 @@ export class Album1Design extends PosterDesign<AlbumData> {
 		}
 
 		// Draw track listing
-		this.drawTrackListing(ctx, albumData.tracks, config.margin, 2780, 1150, 62);
+		const trackTitles = albumData.tracks.map(track => track.title);
+		this.drawTrackListing(ctx, trackTitles, config.margin, 2780, 1150, 62);
 
 		// Draw release info
-		this.drawReleaseInfo(ctx, albumData.releaseDate, albumData.copyright, rightX, 3128);
+		this.drawReleaseInfo(ctx, albumData.releaseDate, albumData.copyright || '', rightX, 3128);
 	}
 
 	private drawAlbumInfo(
