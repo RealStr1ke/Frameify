@@ -70,10 +70,10 @@ export interface TrackData {
 	trackNumber?: number;
 	discNumber?: number;
 	isrc?: string;
-	
+
 	// Album reference (populated when from album)
 	album?: AlbumData; // Full album data when fetched from album
-	
+
 	// Standalone track fields (when NOT from album)
 	albumTitle?: string;
 	albumArtPath?: string;
@@ -90,12 +90,12 @@ export interface AlbumData {
 	title: string;
 	artist: string;
 	releaseDate: string;
-	copyright: string;
-	
+	copyright?: string;
+
 	// Track organization
 	tracks: TrackData[]; // For single-disc albums
 	discs?: DiscData[]; // For multi-disc albums (if present, use this instead of tracks)
-	
+
 	// Optional metadata
 	totalTracks?: number;
 	totalDiscs?: number;

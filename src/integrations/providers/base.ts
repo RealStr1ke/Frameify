@@ -2,7 +2,7 @@
  * Base provider class for fetching music data without API keys
  */
 
-import type { MusicTrackData, MusicAlbumData } from '../../types';
+import type { MusicAlbumData } from '../../types';
 
 export abstract class MusicProvider {
 	abstract name: string;
@@ -13,14 +13,11 @@ export abstract class MusicProvider {
 	abstract canHandle(url: string): boolean;
 
 	/**
-	 * Fetch track data from URL
+	 * Fetch music data from URL (always returns full album with track list)
+	 * For track URLs: fetches parent album and includes all tracks
+	 * For album URLs: fetches album and all tracks
 	 */
-	abstract fetchTrackData(url: string): Promise<MusicTrackData>;
-
-	/**
-	 * Fetch album data from URL
-	 */
-	abstract fetchAlbumData(url: string): Promise<MusicAlbumData>;
+	abstract fetchData(url: string): Promise<MusicAlbumData>;
 
 	/**
 	 * Fetch HTML with proper headers

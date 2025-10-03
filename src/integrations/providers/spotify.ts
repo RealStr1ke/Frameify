@@ -4,7 +4,7 @@
  */
 
 import { MusicProvider } from './base';
-import type { SpotifyAlbumData, SpotifyTrackData } from '../../types';
+import type { SpotifyAlbumData, SpotifyTrackData, DiscData } from '../../types';
 
 interface MetaTag {
 	name?: string;
@@ -30,7 +30,21 @@ export class SpotifyProvider extends MusicProvider {
 		return url.includes('open.spotify.com');
 	}
 
-	async fetchTrackData(url: string): Promise<SpotifyTrackData> {
+	async fetchData(url: string): Promise<SpotifyAlbumData> {
+		// Determine if this is a track or album URL
+		if (url.includes('/track/')) {
+			return this.fetchFromTrackUrl(url);
+		} else if (url.includes('/album/')) {
+			return this.fetchFromAlbumUrl(url);
+		} else {
+			throw new Error('Invalid Spotify URL - must be a track or album URL');
+		}
+	}
+
+	/**
+	 * Fetch album data from a track URL
+	 */
+	private async fetchFromTrackUrl(url: string): Promise<SpotifyAlbumData> {
 		// Extract track ID from URL
 		const trackId = this.extractSpotifyId(url, 'track');
 		if (!trackId) {
@@ -43,38 +57,21 @@ export class SpotifyProvider extends MusicProvider {
 		// Extract all meta tags
 		const metaTags = this.extractAllMetaTags(html);
 
-		// Parse track metadata using specific meta tag names
+		// Parse track metadata to get album URL
 		const metadata = this.parseTrackMetadata(metaTags);
 
-		// Build Spotify URI
-		const spotifyUri = `spotify:track:${trackId}`;
-
-		// Build Spotify Code URL with default options
-		const spotifyCodeUrl = this.buildSpotifyCodeUrl(spotifyUri);
-
-		// Fetch album metadata if album URL is available
-		let albumMetadata = null;
-		if (metadata.album) {
-			albumMetadata = await this.fetchAlbumMetadata(metadata.album);
+		if (!metadata.album) {
+			throw new Error('Could not find album URL from track metadata');
 		}
 
-		return {
-			title: metadata.title || 'Unknown',
-			artist: metadata.artist || 'Unknown',
-			album: albumMetadata?.title || metadata.album,
-			albumArtPath: metadata.artworkUrl || '',
-			duration: metadata.duration || 0,
-			releaseDate: metadata.releaseDate || albumMetadata?.releaseDate,
-			copyright: albumMetadata?.copyright,
-			platform: 'spotify',
-			spotifyId: trackId,
-			spotifyUri: spotifyUri,
-			spotifyUrl: trackUrl,
-			spotifyCodeUrl: spotifyCodeUrl,
-		};
+		// Fetch the full album data
+		return this.fetchFromAlbumUrl(metadata.album);
 	}
 
-	async fetchAlbumData(url: string): Promise<SpotifyAlbumData> {
+	/**
+	 * Fetch album data from an album URL
+	 */
+	private async fetchFromAlbumUrl(url: string): Promise<SpotifyAlbumData> {
 		// Extract album ID from URL
 		const albumId = this.extractSpotifyId(url, 'album');
 		if (!albumId) {
@@ -83,6 +80,7 @@ export class SpotifyProvider extends MusicProvider {
 
 		const albumUrl = `https://open.spotify.com/album/${albumId}`;
 		const html = await this.fetchHtml(albumUrl);
+
 		// Extract all meta tags
 		const metaTags = this.extractAllMetaTags(html);
 
@@ -95,34 +93,33 @@ export class SpotifyProvider extends MusicProvider {
 		// Build Spotify Code URL
 		const spotifyCodeUrl = this.buildSpotifyCodeUrl(spotifyUri);
 
-		return {
+		// Extract track list from meta tags
+		const tracks = await this.extractTrackList(metaTags, metadata.releaseDate);
+
+		// Organize tracks by disc if multi-disc
+		const totalDiscs = this.getTotalDiscs(metaTags);
+		const albumData: SpotifyAlbumData = {
 			coverImagePath: metadata.artworkUrl || '',
 			title: metadata.title || 'Unknown',
 			artist: metadata.artist || 'Unknown',
-			tracks: [], // Can't get track list from meta tags
+			tracks: totalDiscs > 1 ? [] : tracks,
 			releaseDate: metadata.releaseDate || 'Unknown',
-			copyright: metadata.copyright || '',
 			platform: 'spotify',
 			spotifyId: albumId,
 			spotifyUri: spotifyUri,
 			spotifyUrl: albumUrl,
 			spotifyCodeUrl: spotifyCodeUrl,
 		};
-	}
 
-	/**
-	 * Fetch album metadata from album URL (internal helper)
-	 */
-	private async fetchAlbumMetadata(albumUrl: string): Promise<{ title?: string; releaseDate?: string; copyright?: string; artworkUrl?: string } | null> {
-		try {
-			const html = await this.fetchHtml(albumUrl);
-			const metaTags = this.extractAllMetaTags(html);
-			const metadata = this.parseAlbumMetadata(metaTags);
-			return metadata;
-		} catch (error) {
-			console.warn('Failed to fetch album metadata:', error);
-			return null;
+		// If multi-disc, organize into discs array
+		if (totalDiscs > 1) {
+			albumData.discs = this.organizeTracksIntoDiscs(tracks, totalDiscs);
+			albumData.totalDiscs = totalDiscs;
 		}
+
+		albumData.totalTracks = tracks.length;
+
+		return albumData;
 	}
 
 	/**
@@ -288,7 +285,7 @@ export class SpotifyProvider extends MusicProvider {
 			artworkUrl: undefined as string | undefined,
 			title: undefined as string | undefined,
 			artist: undefined as string | undefined,
-			copyright: undefined as string | undefined,
+			artistUrl: undefined as string | undefined,
 			releaseDate: undefined as string | undefined,
 		};
 
@@ -297,20 +294,127 @@ export class SpotifyProvider extends MusicProvider {
 			if (tag.property === 'og:image') {
 				metadata.artworkUrl = tag.content;
 			} else if (tag.property === 'og:title') {
-				// Title
-				metadata.title = tag.content;
+				// Title (format: "ALBUM_NAME - Album by ARTIST | Spotify" or "ALBUM_NAME")
+				let title = tag.content;
+				if (title) {
+					// Remove " - Album by [Artist] | Spotify" suffix
+					title = title.replace(/\s*-\s*Album by .* \| Spotify$/i, '');
+					// Also handle single format: "ALBUM_NAME | Spotify"
+					title = title.replace(/\s*\|\s*Spotify$/i, '');
+					metadata.title = title.trim();
+				}
 			} else if (tag.property === 'og:description') {
-				// Copyright/description
-				metadata.copyright = tag.content;
+				// Description format: "Artist · album · YYYY · N songs"
+				// Extract artist from description if not already set
+				if (!metadata.artist && tag.content) {
+					const parts = tag.content.split('·').map(p => p.trim());
+					if (parts.length > 0) {
+						metadata.artist = parts[0];
+					}
+				}
 			} else if (tag.name === 'music:release_date') {
 				// Release date
 				metadata.releaseDate = tag.content;
-			} else if (tag.name === 'music:musician_description') {
-				// Artist (fallback)
-				metadata.artist = tag.content;
+			} else if (tag.name === 'music:musician') {
+				// Artist URL (first one is primary artist)
+				if (!metadata.artistUrl) {
+					metadata.artistUrl = tag.content;
+				}
 			}
 		}
 
 		return metadata;
+	}
+
+	/**
+	 * Extract track list from album meta tags
+	 */
+	private async extractTrackList(metaTags: MetaTag[], albumReleaseDate?: string): Promise<SpotifyTrackData[]> {
+		const tracks: SpotifyTrackData[] = [];
+		const trackMap = new Map<string, { disc: number; track: number }>();
+
+		// First pass: collect track URLs with their disc/track numbers
+		for (let i = 0; i < metaTags.length; i++) {
+			const tag = metaTags[i];
+
+			if (tag.name === 'music:song' && tag.content) {
+				const trackUrl = tag.content;
+				const discTag = metaTags[i + 1];
+				const trackTag = metaTags[i + 2];
+
+				const discNumber = discTag?.name === 'music:song:disc' ? parseInt(discTag.content || '1') : 1;
+				const trackNumber = trackTag?.name === 'music:song:track' ? parseInt(trackTag.content || '0') : 0;
+
+				trackMap.set(trackUrl, { disc: discNumber, track: trackNumber });
+			}
+		}
+
+		// Second pass: fetch metadata for each track
+		for (const [trackUrl, position] of trackMap.entries()) {
+			try {
+				const trackHtml = await this.fetchHtml(trackUrl);
+				const trackMetaTags = this.extractAllMetaTags(trackHtml);
+				const trackMetadata = this.parseTrackMetadata(trackMetaTags);
+
+				const trackId = this.extractSpotifyId(trackUrl, 'track');
+				if (!trackId) continue;
+
+				const spotifyUri = `spotify:track:${trackId}`;
+
+				tracks.push({
+					title: trackMetadata.title || 'Unknown',
+					artist: trackMetadata.artist || 'Unknown',
+					duration: trackMetadata.duration || 0,
+					trackNumber: position.track,
+					discNumber: position.disc,
+					releaseDate: trackMetadata.releaseDate || albumReleaseDate,
+					platform: 'spotify',
+					spotifyId: trackId,
+					spotifyUri: spotifyUri,
+					spotifyUrl: trackUrl,
+					spotifyCodeUrl: this.buildSpotifyCodeUrl(spotifyUri),
+				});
+			} catch (error) {
+				console.warn(`Failed to fetch track metadata for ${trackUrl}:`, error);
+			}
+		}
+
+		return tracks;
+	}
+
+	/**
+	 * Get total number of discs from meta tags
+	 */
+	private getTotalDiscs(metaTags: MetaTag[]): number {
+		let maxDisc = 1;
+
+		for (const tag of metaTags) {
+			if (tag.name === 'music:song:disc' && tag.content) {
+				const discNum = parseInt(tag.content);
+				if (discNum > maxDisc) {
+					maxDisc = discNum;
+				}
+			}
+		}
+
+		return maxDisc;
+	}
+
+	/**
+	 * Organize tracks into discs for multi-disc albums
+	 */
+	private organizeTracksIntoDiscs(tracks: SpotifyTrackData[], totalDiscs: number): DiscData[] {
+		const discs: DiscData[] = [];
+
+		for (let discNum = 1; discNum <= totalDiscs; discNum++) {
+			const discTracks = tracks.filter(track => track.discNumber === discNum);
+
+			discs.push({
+				discNumber: discNum,
+				tracks: discTracks,
+			});
+		}
+
+		return discs;
 	}
 }
