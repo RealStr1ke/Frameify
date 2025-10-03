@@ -28,6 +28,7 @@ export {
 	CustomGradientBackground,
 	RadialGradientBackground,
 	ImageBackground,
+	BlurredAlbumCoverBackground,
 	AlbumColorPaletteBackground,
 	CustomBackground,
 } from './core/background-modes';

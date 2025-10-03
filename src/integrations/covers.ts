@@ -3,6 +3,8 @@
  * Uses Music Hoarders API to fetch high-resolution covers from multiple sources
  */
 
+import axios from 'axios';
+
 export interface CoverResult {
 	smallCoverUrl: string;
 	bigCoverUrl: string;
@@ -63,16 +65,15 @@ export class CoverFetcher {
 	async searchCovers(options: CoverSearchOptions): Promise<CoverResult[]> {
 		const { artist, album, country = 'us', sources = CoverFetcher.DEFAULT_SOURCES } = options;
 
-		const body = JSON.stringify({
+		const body = {
 			artist,
 			album,
 			country,
 			sources,
-		});
+		};
 
 		try {
-			const response = await fetch(CoverFetcher.API_URL, {
-				method: 'POST',
+			const response = await axios.post(CoverFetcher.API_URL, body, {
 				headers: {
 					'Content-Type': 'application/json',
 					'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0',
@@ -85,16 +86,10 @@ export class CoverFetcher {
 					'Sec-Fetch-Mode': 'cors',
 					'Sec-Fetch-Site': 'same-origin',
 				},
-				referrer: 'https://covers.musichoarders.xyz/',
-				body,
+				responseType: 'text',
 			});
 
-			if (!response.ok) {
-				throw new Error(`HTTP error! status: ${response.status}`);
-			}
-
-			const text = await response.text();
-			return this.parseStreamResponse(text);
+			return this.parseStreamResponse(response.data);
 		} catch (error) {
 			console.error('Error fetching covers:', error);
 			throw error;
@@ -234,13 +229,11 @@ export class CoverFetcher {
 	 * Download cover image to a local path
 	 */
 	async downloadCover(url: string, outputPath: string): Promise<void> {
-		const response = await fetch(url);
-		if (!response.ok) {
-			throw new Error(`Failed to download cover: ${response.status}`);
-		}
+		const response = await axios.get(url, {
+			responseType: 'arraybuffer',
+		});
 
-		const arrayBuffer = await response.arrayBuffer();
-		const buffer = Buffer.from(arrayBuffer);
+		const buffer = Buffer.from(response.data);
 
 		const fs = await import('fs/promises');
 		await fs.writeFile(outputPath, buffer);

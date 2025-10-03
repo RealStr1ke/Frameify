@@ -3,6 +3,8 @@
  * Uses MusicBrainz API to fetch comprehensive label data
  */
 
+import axios from 'axios';
+
 export interface LabelInfo {
 	name: string;
 	catalogNumber?: string;
@@ -34,18 +36,14 @@ export class LabelFetcher {
 			searchUrl.searchParams.set('fmt', 'json');
 			searchUrl.searchParams.set('limit', '5');
 
-			const searchResponse = await fetch(searchUrl.toString(), {
+			const searchResponse = await axios.get(searchUrl.toString(), {
 				headers: {
 					'User-Agent': LabelFetcher.USER_AGENT,
 					'Accept': 'application/json',
 				},
 			});
 
-			if (!searchResponse.ok) {
-				throw new Error(`MusicBrainz API error: ${searchResponse.status}`);
-			}
-
-			const searchData = await searchResponse.json();
+			const searchData = searchResponse.data;
 
 			if (!searchData.releases || searchData.releases.length === 0) {
 				return null;
@@ -73,16 +71,14 @@ export class LabelFetcher {
 
 			const detailUrl = `${LabelFetcher.MUSICBRAINZ_API}/release/${releaseId}?inc=labels&fmt=json`;
 
-			const response = await fetch(detailUrl, {
+			const response = await axios.get(detailUrl, {
 				headers: {
 					'User-Agent': LabelFetcher.USER_AGENT,
 					'Accept': 'application/json',
 				},
 			});
 
-			if (!response.ok) {
-				throw new Error(`MusicBrainz API error: ${response.status}`);
-			}			const data = await response.json();
+			const data = response.data;
 
 			// Extract label information
 			const labels: LabelInfo[] = (data['label-info'] || []).map((labelInfo: any) => ({
@@ -113,18 +109,14 @@ export class LabelFetcher {
 			searchUrl.searchParams.set('fmt', 'json');
 			searchUrl.searchParams.set('limit', '1');
 
-			const searchResponse = await fetch(searchUrl.toString(), {
+			const searchResponse = await axios.get(searchUrl.toString(), {
 				headers: {
 					'User-Agent': LabelFetcher.USER_AGENT,
 					'Accept': 'application/json',
 				},
 			});
 
-			if (!searchResponse.ok) {
-				throw new Error(`MusicBrainz API error: ${searchResponse.status}`);
-			}
-
-			const searchData = await searchResponse.json();
+			const searchData = searchResponse.data;
 
 			if (!searchData.releases || searchData.releases.length === 0) {
 				return null;

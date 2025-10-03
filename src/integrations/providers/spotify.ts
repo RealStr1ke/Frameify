@@ -27,15 +27,20 @@ export class SpotifyProvider extends MusicProvider {
 	name = 'Spotify';
 
 	canHandle(url: string): boolean {
-		return url.includes('open.spotify.com');
+		// Remove query parameters (like ?si=...) before checking
+		const cleanUrl = url.split('?')[0];
+		return cleanUrl.includes('open.spotify.com');
 	}
 
 	async fetchData(url: string): Promise<SpotifyAlbumData> {
+		// Clean URL by removing query parameters
+		const cleanUrl = url.split('?')[0];
+
 		// Determine if this is a track or album URL
-		if (url.includes('/track/')) {
-			return this.fetchFromTrackUrl(url);
-		} else if (url.includes('/album/')) {
-			return this.fetchFromAlbumUrl(url);
+		if (cleanUrl.includes('/track/')) {
+			return this.fetchFromTrackUrl(cleanUrl);
+		} else if (cleanUrl.includes('/album/')) {
+			return this.fetchFromAlbumUrl(cleanUrl);
 		} else {
 			throw new Error('Invalid Spotify URL - must be a track or album URL');
 		}
@@ -207,6 +212,23 @@ export class SpotifyProvider extends MusicProvider {
 	}
 
 	/**
+	 * Decode HTML entities (e.g., &#x27; to ', &amp; to &, etc.)
+	 */
+	private decodeHtmlEntities(text: string | undefined): string | undefined {
+		if (!text) return text;
+
+		return text
+			.replace(/&#x27;/g, '\'')
+			.replace(/&#39;/g, '\'')
+			.replace(/&quot;/g, '"')
+			.replace(/&amp;/g, '&')
+			.replace(/&lt;/g, '<')
+			.replace(/&gt;/g, '>')
+			.replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
+			.replace(/&#x([0-9a-f]+);/gi, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
+	}
+
+	/**
 	 * Extract all meta tags from HTML
 	 */
 	private extractAllMetaTags(html: string): MetaTag[] {
@@ -261,16 +283,16 @@ export class SpotifyProvider extends MusicProvider {
 				metadata.album = tag.content;
 			} else if (tag.name === 'music:song') {
 				// Title (from music:song)
-				metadata.title = tag.content;
+				metadata.title = this.decodeHtmlEntities(tag.content);
 			} else if (tag.name === 'music:musician_description') {
 				// Artist
-				metadata.artist = tag.content;
+				metadata.artist = this.decodeHtmlEntities(tag.content);
 			} else if (tag.name === 'music:release_date') {
 				// Release date
 				metadata.releaseDate = tag.content;
 			} else if (tag.property === 'og:title' && !metadata.title) {
 				// Title fallback (from og:title)
-				metadata.title = tag.content;
+				metadata.title = this.decodeHtmlEntities(tag.content);
 			}
 		}
 
@@ -301,7 +323,7 @@ export class SpotifyProvider extends MusicProvider {
 					title = title.replace(/\s*-\s*Album by .* \| Spotify$/i, '');
 					// Also handle single format: "ALBUM_NAME | Spotify"
 					title = title.replace(/\s*\|\s*Spotify$/i, '');
-					metadata.title = title.trim();
+					metadata.title = this.decodeHtmlEntities(title.trim());
 				}
 			} else if (tag.property === 'og:description') {
 				// Description format: "Artist · album · YYYY · N songs"
@@ -309,7 +331,7 @@ export class SpotifyProvider extends MusicProvider {
 				if (!metadata.artist && tag.content) {
 					const parts = tag.content.split('·').map(p => p.trim());
 					if (parts.length > 0) {
-						metadata.artist = parts[0];
+						metadata.artist = this.decodeHtmlEntities(parts[0]);
 					}
 				}
 			} else if (tag.name === 'music:release_date') {

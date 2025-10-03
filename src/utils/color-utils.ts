@@ -75,6 +75,16 @@ export async function extractColorPalette(imagePath: string, numColors: number =
 		if (diverseColors.length >= numColors) break;
 	}
 
+	// If we don't have enough diverse colors, add the most common ones regardless of similarity
+	if (diverseColors.length < numColors) {
+		for (const color of colorsWithLightness) {
+			if (!diverseColors.some(dc => dc.r === color.r && dc.g === color.g && dc.b === color.b)) {
+				diverseColors.push(color);
+				if (diverseColors.length >= numColors) break;
+			}
+		}
+	}
+
 	// Sort from light to dark
 	diverseColors.sort((a, b) => b.lightness - a.lightness);
 
