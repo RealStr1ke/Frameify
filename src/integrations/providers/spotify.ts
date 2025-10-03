@@ -47,6 +47,63 @@ export class SpotifyProvider extends MusicProvider {
 	}
 
 	/**
+	 * Fetch track data directly (for song posters)
+	 * This fetches the full album data but returns track-specific info
+	 */
+	async fetchTrackData(url: string): Promise<SpotifyTrackData & { album?: SpotifyAlbumData }> {
+		// Clean URL by removing query parameters
+		const cleanUrl = url.split('?')[0];
+
+		// Extract track ID from URL
+		const trackId = this.extractSpotifyId(cleanUrl, 'track');
+		if (!trackId) {
+			throw new Error('Invalid Spotify track URL');
+		}
+
+		const trackUrl = `https://open.spotify.com/track/${trackId}`;
+		const html = await this.fetchHtml(trackUrl);
+
+		// Extract all meta tags
+		const metaTags = this.extractAllMetaTags(html);
+
+		// Parse track metadata
+		const trackMetadata = this.parseTrackMetadata(metaTags);
+
+		if (!trackMetadata.title || !trackMetadata.artist || !trackMetadata.artworkUrl) {
+			throw new Error('Could not extract required track metadata');
+		}
+
+		// Build Spotify URI and Code URL for the track
+		const spotifyUri = `spotify:track:${trackId}`;
+		const spotifyCodeUrl = this.buildSpotifyCodeUrl(spotifyUri);
+
+		// Fetch the full album data
+		let albumData: SpotifyAlbumData | undefined;
+		if (trackMetadata.album) {
+			try {
+				albumData = await this.fetchFromAlbumUrl(trackMetadata.album);
+			} catch (error) {
+				console.warn('Could not fetch album data:', error);
+			}
+		}
+
+		// Return track data with album reference
+		return {
+			platform: 'spotify',
+			spotifyId: trackId,
+			spotifyUri,
+			spotifyUrl: trackUrl,
+			spotifyCodeUrl,
+			title: trackMetadata.title,
+			artist: trackMetadata.artist,
+			duration: trackMetadata.duration || 0,
+			albumArtPath: trackMetadata.artworkUrl,
+			releaseDate: trackMetadata.releaseDate,
+			album: albumData, // Include full album data
+		};
+	}
+
+	/**
 	 * Fetch album data from a track URL
 	 */
 	private async fetchFromTrackUrl(url: string): Promise<SpotifyAlbumData> {
@@ -283,7 +340,9 @@ export class SpotifyProvider extends MusicProvider {
 				metadata.album = tag.content;
 			} else if (tag.name === 'music:song') {
 				// Title (from music:song)
-				metadata.title = this.decodeHtmlEntities(tag.content);
+				const rawTitle = this.decodeHtmlEntities(tag.content);
+				// Remove "- Single by <artist>" pattern
+				metadata.title = rawTitle?.replace(/\s*-\s*Single\s+by\s+.+$/i, '');
 			} else if (tag.name === 'music:musician_description') {
 				// Artist
 				metadata.artist = this.decodeHtmlEntities(tag.content);
@@ -292,7 +351,9 @@ export class SpotifyProvider extends MusicProvider {
 				metadata.releaseDate = tag.content;
 			} else if (tag.property === 'og:title' && !metadata.title) {
 				// Title fallback (from og:title)
-				metadata.title = this.decodeHtmlEntities(tag.content);
+				const rawTitle = this.decodeHtmlEntities(tag.content);
+				// Remove "- Single by <artist>" pattern
+				metadata.title = rawTitle?.replace(/\s*-\s*Single\s+by\s+.+$/i, '');
 			}
 		}
 

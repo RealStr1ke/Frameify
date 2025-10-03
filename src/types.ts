@@ -105,6 +105,25 @@ export interface AlbumData {
 }
 
 /**
+ * Song data for individual track posters
+ */
+export interface SongData {
+	title: string;
+	artist: string;
+	album?: string;
+	coverImagePath: string;
+	releaseDate: string;
+	duration: number;
+	progress?: number; // 0-1 (0% to 100%)
+	copyright?: string;
+	label?: string;
+	genres?: string[];
+	trackNumber?: number;
+	totalTracks?: number;
+	isrc?: string;
+}
+
+/**
  * Spotify-specific data
  */
 export interface SpotifyTrackData extends TrackData {
