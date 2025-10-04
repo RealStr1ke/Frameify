@@ -7,6 +7,7 @@ import { PosterDesign } from '../core/base';
 import type { AlbumData, RenderContext } from '../types';
 import { extractColorPalette } from '../utils/color-utils';
 import { drawImageWithShadow, drawLine, drawRect, truncateText } from '../utils/canvas-utils';
+import { designRegistry } from '../registry';
 
 /**
  * Album Design #1 - Classic album poster design
@@ -328,3 +329,17 @@ export class Album1Design extends PosterDesign<AlbumData> {
 		return `${monthName} ${day}, ${year}`;
 	}
 }
+
+// Self-register with the design registry
+designRegistry.register(Album1Design, {
+	name: 'album-1',
+	displayName: 'Album Design #1',
+	description: 'Classic album poster with track listing and detailed metadata',
+	category: 'album',
+	platform: 'generic',
+	version: '1.0.0',
+	author: 'Frameify',
+	tags: ['classic', 'detailed', 'track-listing', 'metadata'],
+	requiredDataFields: ['title', 'artist', 'coverImagePath', 'tracks', 'releaseDate'],
+	supportedFormats: ['png', 'jpg'],
+});

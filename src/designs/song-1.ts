@@ -7,6 +7,7 @@ import { PosterDesign } from '../core/base';
 import type { SongData, RenderContext } from '../types';
 import { extractColorPalette } from '../utils/color-utils';
 import { truncateText } from '../utils/canvas-utils';
+import { designRegistry } from '../registry';
 import * as canvas from 'canvas';
 import { readFile } from 'node:fs/promises';
 
@@ -24,7 +25,7 @@ export class Song1Design extends PosterDesign<SongData> {
 		this.albumCoverSize = config.albumCoverSize ?? 2300;
 		this.borderRadius = config.borderRadius ?? 50;
 		this.iconColor = config.iconColor ?? '#ffffff';
-		this.iconPath = config.iconPath ?? './assets/svgs/song-1-icons.svg';
+		this.iconPath = config.iconPath ?? './assets/svgs/S1_PLAYBACK_CONTROLS.svg';
 	}
 
 	getName(): string {
@@ -358,3 +359,17 @@ export class Song1Design extends PosterDesign<SongData> {
 		}
 	}
 }
+
+// Self-register with the design registry
+designRegistry.register(Song1Design, {
+	name: 'song-1',
+	displayName: 'Song Design #1',
+	description: 'Modern song poster with rounded album cover and progress bar',
+	category: 'song',
+	platform: 'generic',
+	version: '1.0.0',
+	author: 'Frameify',
+	tags: ['modern', 'rounded', 'progress-bar', 'clean'],
+	requiredDataFields: ['title', 'artist', 'coverImagePath', 'duration'],
+	supportedFormats: ['png', 'jpg'],
+});

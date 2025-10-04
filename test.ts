@@ -6,8 +6,6 @@
 import {
 	Frameify,
 	Integrations,
-	Designs,
-	SpotifySongDesign,
 	type AlbumData,
 	type SongData,
 	type SpotifySongData,
@@ -80,10 +78,10 @@ async function generateAlbumPoster(url: string) {
 	const outputPath = './poster.png';
 
 	await Frameify.create<AlbumData>()
-		.withDesign(new Designs.Album1({
+		.withRegisteredDesign('album-1', {
 			textColor: '#ffffff',
 			dividerColor: '#ffffff',
-		}))
+		})
 		.withAutoBackground({ direction: 'lightToDark' })
 		.generate(finalAlbumData, outputPath);
 
@@ -206,11 +204,11 @@ async function generateSongPoster(url: string) {
 	const outputPath = './poster.png';
 
 	await Frameify.create<SongData>()
-		.withDesign(new Designs.Song1({
+		.withRegisteredDesign('song-1', {
 			textColor: '#ffffff',
 			dividerColor: '#ffffff',
 			iconColor: '#ffffff',
-		}))
+		})
 		.withAutoBackground({ direction: 'lightToDark' })
 		.generate(finalSongData, outputPath);
 
@@ -335,11 +333,11 @@ async function generateSpotifySongPoster(url: string) {
 	const outputPath = './spotify-poster.png';
 
 	await Frameify.create<SpotifySongData>()
-		.withDesign(new SpotifySongDesign({
+		.withRegisteredDesign('spotify-song', {
 			textColor: '#ffffff',
 			iconColor: '#ffffff',
-			spotifyCodeColor: '#ffffff',
-		}))
+			spotifyCodeColor: '#1DB954', // Spotify green
+		})
 		.withAutoBackground({ direction: 'lightToDark' })
 		.generate(finalSongData, outputPath);
 

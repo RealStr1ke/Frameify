@@ -10,9 +10,7 @@ import * as fs from 'node:fs';
 import type { PosterDesign as PosterDesignBase, BackgroundMode as BackgroundModeBase } from './core/base';
 import { AlbumColorPaletteBackground } from './core/background-modes';
 import * as BackgroundsImport from './core/background-modes';
-import { Album1Design } from './designs/album-1';
-import { Song1Design } from './designs/song-1';
-import { SpotifySongDesign } from './designs/spotify-song';
+import { designRegistry } from './registry';
 import { MusicProvider } from './integrations/providers/base';
 import { SpotifyProvider, getSpotifyCodeUrl, getTransparentSpotifyCode, getSpotifyCodeFromUrl, getSpotifyCodeBuffer } from './integrations/providers/spotify';
 import { CoverFetcher, getBestAlbumCover, getAllAlbumCovers } from './integrations/covers';
@@ -21,6 +19,15 @@ import * as ColorUtils from './utils/color-utils';
 import * as CanvasUtils from './utils/canvas-utils';
 import * as MusicUtils from './utils/music-utils';
 import type * as TypesImport from './types';
+
+// Auto-load all designs (triggers self-registration)
+// To add a new design: 1) create the design file, 2) add import here
+import './designs/album-1';
+import './designs/song-1';
+import './designs/spotify-song';
+
+// Auto-loading complete - log registry state
+console.log(`🎨 Loaded ${designRegistry.size()} designs into registry`);
 
 // ============================================================================
 // Main Frameify Class
@@ -162,10 +169,67 @@ export class Frameify<TData = any> {
 	}
 
 	/**
+	 * Use a design from the registry by name
+	 */
+	withRegisteredDesign(designName: string, config?: any): this {
+		const design = designRegistry.create(designName, config);
+		if (!design) {
+			throw new Error(`Design "${designName}" not found in registry. Available: ${designRegistry.list().join(', ')}`);
+		}
+		return this.withDesign(design);
+	}
+
+	/**
 	 * Create a new Frameify poster generator instance
 	 */
 	static create<T = any>(): Frameify<T> {
 		return new Frameify<T>();
+	}
+
+	/**
+	 * Get platform-specific design suggestions
+	 */
+	static getDesignsForPlatform(platform: string): string[] {
+		return designRegistry.listByPlatform(platform);
+	}
+
+	/**
+	 * Get designs by category
+	 */
+	static getAlbumDesigns(): string[] {
+		return designRegistry.getAlbumDesigns();
+	}
+
+	static getSongDesigns(): string[] {
+		return designRegistry.getSongDesigns();
+	}
+
+	/**
+	 * Get Spotify-specific designs
+	 */
+	static getSpotifyDesigns(): string[] {
+		return designRegistry.getSpotifyDesigns();
+	}
+
+	/**
+	 * Get recommended designs for data and platform
+	 */
+	static getRecommendedDesigns(dataType: 'album' | 'song', platform?: string): string[] {
+		return designRegistry.getRecommendedDesigns(dataType, platform);
+	}
+
+	/**
+	 * Get compatible designs for specific data
+	 */
+	static getCompatibleDesigns(data: any, category?: 'album' | 'song'): string[] {
+		return designRegistry.getCompatibleDesigns(data, category);
+	}
+
+	/**
+	 * Access to the design registry
+	 */
+	static get Registry() {
+		return designRegistry;
 	}
 }
 
@@ -181,9 +245,27 @@ export const Backgrounds = BackgroundsImport;
 
 // Designs namespace
 export const Designs = {
-	Album1: Album1Design,
-	Song1: Song1Design,
-	SpotifySong: SpotifySongDesign,
+	// Registry-based factory functions (backwards compatible)
+	Album1: (config?: any) => designRegistry.create('album-1', config),
+	Song1: (config?: any) => designRegistry.create('song-1', config),
+	SpotifySong: (config?: any) => designRegistry.create('spotify-song', config),
+	
+	// Registry methods
+	Registry: designRegistry,
+	list: () => designRegistry.list(),
+	create: (name: string, config?: any) => designRegistry.create(name, config),
+	getMetadata: (name: string) => designRegistry.getMetadata(name),
+	getByCategory: (category: 'album' | 'song') => designRegistry.listByCategory(category),
+	getByPlatform: (platform: string) => designRegistry.listByPlatform(platform),
+	getRecommended: (dataType: 'album' | 'song', platform?: string) => designRegistry.getRecommendedDesigns(dataType, platform),
+	getCompatible: (data: any, category?: 'album' | 'song') => designRegistry.getCompatibleDesigns(data, category),
+	
+	// Platform-specific helpers
+	spotify: () => designRegistry.getSpotifyDesigns(),
+	appleMusic: () => designRegistry.getAppleMusicDesigns(),
+	youtubeMusic: () => designRegistry.getYouTubeMusicDesigns(),
+	soundcloud: () => designRegistry.getSoundCloudDesigns(),
+	generic: () => designRegistry.getGenericDesigns(),
 };
 
 // Integrations namespace
@@ -263,8 +345,7 @@ export {
 // Re-export main class as PosterGenerator for backwards compatibility
 export { Frameify as PosterGenerator };
 
-// Individual exports for tree-shaking
-export { Album1Design, Song1Design, SpotifySongDesign };
+// Individual exports for tree-shaking (registry-based)
 export { MusicProvider, SpotifyProvider };
 export { CoverFetcher, getBestAlbumCover, getAllAlbumCovers };
 export { LabelFetcher, getAlbumLabel };
@@ -277,6 +358,7 @@ export * from './utils/music-utils';
 // Re-export all types
 export type * from './types';
 export type { SpotifySongData } from './designs/spotify-song';
+export type { DesignMetadata, RegisterDesignFunction } from './registry';
 export type { CoverResult, CoverSearchOptions } from './integrations/covers';
 export type { LabelInfo, ReleaseInfo } from './integrations/label';
 export type { SpotifyCodeOptions } from './integrations/providers/spotify';

@@ -8,6 +8,7 @@ import type { SongData, RenderContext } from '../types';
 import { extractColorPalette } from '../utils/color-utils';
 import { truncateText } from '../utils/canvas-utils';
 import { getTransparentSpotifyCode } from '../integrations/providers/spotify';
+import { designRegistry } from '../registry';
 import * as canvas from 'canvas';
 import { readFile } from 'node:fs/promises';
 
@@ -48,8 +49,8 @@ export class SpotifySongDesign extends PosterDesign<SpotifySongData> {
 		this.albumCoverSize = config.albumCoverSize ?? 2300;
 		this.borderRadius = config.borderRadius ?? 50;
 		this.iconColor = config.iconColor ?? '#ffffff';
-		this.iconPath = config.iconPath ?? './assets/svgs/song-1-icons.svg';
-		this.headphonesIconPath = config.headphonesIconPath ?? './assets/svgs/headphones.svg';
+		this.iconPath = config.iconPath ?? './assets/svgs/S1_PLAYBACK_CONTROLS.svg';
+		this.headphonesIconPath = config.headphonesIconPath ?? './assets/svgs/SS_HEADPHONES.svg';
 		this.spotifyCodeColor = config.spotifyCodeColor ?? '#1DB954'; // Spotify green
 	}
 
@@ -385,3 +386,17 @@ export class SpotifySongDesign extends PosterDesign<SpotifySongData> {
 		}
 	}
 }
+
+// Self-register with the design registry
+designRegistry.register(SpotifySongDesign, {
+	name: 'spotify-song',
+	displayName: 'Spotify Song Design',
+	description: 'Spotify-branded song poster with scannable code and platform-specific features',
+	category: 'song',
+	platform: 'spotify',
+	version: '1.0.0',
+	author: 'Frameify',
+	tags: ['spotify', 'scannable', 'modern', 'branded', 'headphones'],
+	requiredDataFields: ['title', 'artist', 'coverImagePath', 'spotifyUri', 'trackNumber', 'totalTracks'],
+	supportedFormats: ['png'],
+});
