@@ -2,3 +2,4 @@ exports/*
 testing/*
 node_modules/*
 covers/*
+old/*
