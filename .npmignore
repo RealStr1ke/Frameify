@@ -1,0 +1,13 @@
+# Exclude showcase posters (keep them in Git for README)
+assets/posters/
+
+# Exclude test outputs and temporary files
+exports/
+covers/
+*.test.ts
+test.ts
+
+# Exclude development files
+.vscode/
+.git/
+.github/
