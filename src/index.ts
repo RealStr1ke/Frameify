@@ -12,8 +12,9 @@ import { AlbumColorPaletteBackground } from './core/background-modes';
 import * as BackgroundsImport from './core/background-modes';
 import { Album1Design } from './designs/album-1';
 import { Song1Design } from './designs/song-1';
+import { SpotifySongDesign } from './designs/spotify-song';
 import { MusicProvider } from './integrations/providers/base';
-import { SpotifyProvider } from './integrations/providers/spotify';
+import { SpotifyProvider, getSpotifyCodeUrl, getTransparentSpotifyCode, getSpotifyCodeFromUrl, getSpotifyCodeBuffer } from './integrations/providers/spotify';
 import { CoverFetcher, getBestAlbumCover, getAllAlbumCovers } from './integrations/covers';
 import { LabelFetcher, getAlbumLabel } from './integrations/label';
 import * as ColorUtils from './utils/color-utils';
@@ -182,6 +183,7 @@ export const Backgrounds = BackgroundsImport;
 export const Designs = {
 	Album1: Album1Design,
 	Song1: Song1Design,
+	SpotifySong: SpotifySongDesign,
 };
 
 // Integrations namespace
@@ -196,6 +198,14 @@ export const Integrations = {
 		getBestAlbumCover,
 		getAllAlbumCovers,
 		getAlbumLabel,
+	},
+	SpotifyCode: {
+		getCodeUrl: getSpotifyCodeUrl,
+		getTransparentCode: getTransparentSpotifyCode,
+		getCodeFromUrl: getSpotifyCodeFromUrl,
+		getCodeBuffer: getSpotifyCodeBuffer,
+		// Direct access to provider for advanced usage
+		Provider: SpotifyProvider,
 	},
 };
 
@@ -254,10 +264,11 @@ export {
 export { Frameify as PosterGenerator };
 
 // Individual exports for tree-shaking
-export { Album1Design, Song1Design };
+export { Album1Design, Song1Design, SpotifySongDesign };
 export { MusicProvider, SpotifyProvider };
 export { CoverFetcher, getBestAlbumCover, getAllAlbumCovers };
 export { LabelFetcher, getAlbumLabel };
+export { getSpotifyCodeUrl, getTransparentSpotifyCode, getSpotifyCodeFromUrl, getSpotifyCodeBuffer };
 export * from './core/background-modes';
 export * from './utils/color-utils';
 export * from './utils/canvas-utils';
@@ -265,8 +276,10 @@ export * from './utils/music-utils';
 
 // Re-export all types
 export type * from './types';
+export type { SpotifySongData } from './designs/spotify-song';
 export type { CoverResult, CoverSearchOptions } from './integrations/covers';
 export type { LabelInfo, ReleaseInfo } from './integrations/label';
+export type { SpotifyCodeOptions } from './integrations/providers/spotify';
 
 // ============================================================================
 // Default Export

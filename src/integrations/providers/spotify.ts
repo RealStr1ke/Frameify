@@ -21,6 +21,8 @@ export interface SpotifyCodeOptions {
 	size?: number;
 	/** Image format: 'jpeg', 'png', or 'svg'. Default: 'svg' */
 	format?: 'jpeg' | 'png' | 'svg';
+	/** Remove background for transparency (SVG only). Default: false */
+	transparent?: boolean;
 }
 
 export class SpotifyProvider extends MusicProvider {
@@ -194,18 +196,21 @@ export class SpotifyProvider extends MusicProvider {
 	 *
 	 * @example
 	 * ```ts
-	 * // Default (black bg, white bars, 640px, PNG)
+	 * // Default (black bg, white bars, 1280px, SVG)
 	 * buildSpotifyCodeUrl('spotify:track:xxx')
-	 * // => https://scannables.scdn.co/uri/plain/png/000000/white/640/spotify:track:xxx
+	 * // => https://scannables.scdn.co/uri/plain/svg/000000/white/1280/spotify:track:xxx
 	 *
-	 * // Custom (white bg, black bars, 1280px, JPEG)
+	 * // White bg with black bars
 	 * buildSpotifyCodeUrl('spotify:track:xxx', {
 	 *   bgColor: 'ffffff',
 	 *   barColor: 'black',
 	 *   size: 1280,
-	 *   format: 'jpeg'
+	 *   format: 'svg'
 	 * })
-	 * // => https://scannables.scdn.co/uri/plain/jpeg/ffffff/black/1280/spotify:track:xxx
+	 * // => https://scannables.scdn.co/uri/plain/svg/ffffff/black/1280/spotify:track:xxx
+	 *
+	 * // Transparent (for designs)
+	 * buildSpotifyCodeUrl('spotify:track:xxx', { transparent: true })
 	 * ```
 	 */
 	buildSpotifyCodeUrl(spotifyUri: string, options: SpotifyCodeOptions = {}): string {
@@ -220,6 +225,87 @@ export class SpotifyProvider extends MusicProvider {
 		const cleanBgColor = bgColor.replace('#', '');
 
 		return `https://scannables.scdn.co/uri/plain/${format}/${cleanBgColor}/${barColor}/${size}/${spotifyUri}`;
+	}
+
+	/**
+	 * Download Spotify code as SVG with optional transparency
+	 *
+	 * @param spotifyUri - The Spotify URI
+	 * @param options - Code customization options
+	 * @returns SVG content as string
+	 */
+	async downloadSpotifyCodeSvg(spotifyUri: string, options: SpotifyCodeOptions = {}): Promise<string> {
+		const url = this.buildSpotifyCodeUrl(spotifyUri, { ...options, format: 'svg' });
+		const response = await fetch(url);
+		let svg = await response.text();
+
+		// Remove background for transparency if requested
+		if (options.transparent) {
+			svg = this.removeSpotifyCodeBackground(svg);
+		}
+
+		return svg;
+	}
+
+	/**
+	 * Download Spotify code as buffer (PNG/JPEG)
+	 *
+	 * @param spotifyUri - The Spotify URI
+	 * @param options - Code customization options
+	 * @returns Image buffer
+	 */
+	async downloadSpotifyCodeBuffer(spotifyUri: string, options: SpotifyCodeOptions = {}): Promise<Buffer> {
+		const format = options.format || 'png';
+		if (format === 'svg') {
+			throw new Error('Use downloadSpotifyCodeSvg() for SVG format');
+		}
+
+		const url = this.buildSpotifyCodeUrl(spotifyUri, { ...options, format });
+		const response = await fetch(url);
+		const arrayBuffer = await response.arrayBuffer();
+		return Buffer.from(arrayBuffer);
+	}
+
+	/**
+	 * Convert Spotify URL to URI
+	 *
+	 * @param url - Spotify URL (e.g., 'https://open.spotify.com/track/xxx')
+	 * @returns Spotify URI (e.g., 'spotify:track:xxx')
+	 */
+	urlToUri(url: string): string {
+		const cleanUrl = url.split('?')[0];
+		const match = cleanUrl.match(/spotify\.com\/(track|album|playlist|artist)\/([a-zA-Z0-9]+)/);
+		if (!match) {
+			throw new Error('Invalid Spotify URL');
+		}
+		const [, type, id] = match;
+		return `spotify:${type}:${id}`;
+	}
+
+	/**
+	 * Convert Spotify URI to URL
+	 *
+	 * @param uri - Spotify URI (e.g., 'spotify:track:xxx')
+	 * @returns Spotify URL (e.g., 'https://open.spotify.com/track/xxx')
+	 */
+	uriToUrl(uri: string): string {
+		const match = uri.match(/spotify:(track|album|playlist|artist):([a-zA-Z0-9]+)/);
+		if (!match) {
+			throw new Error('Invalid Spotify URI');
+		}
+		const [, type, id] = match;
+		return `https://open.spotify.com/${type}/${id}`;
+	}
+
+	/**
+	 * Remove background from Spotify code SVG for transparency
+	 *
+	 * @param svg - Original SVG content
+	 * @returns SVG with background removed
+	 */
+	private removeSpotifyCodeBackground(svg: string): string {
+		// Remove the first <rect> which is always the background
+		return svg.replace(/<rect x="0" y="0" width="\d+" height="\d+" fill="#[0-9a-fA-F]+"\/>/, '');
 	}
 
 	/**
@@ -500,4 +586,46 @@ export class SpotifyProvider extends MusicProvider {
 
 		return discs;
 	}
+}
+
+// ============================================================================
+// Spotify Code Helper Functions (for convenient access)
+// ============================================================================
+
+/**
+ * Create a SpotifyProvider instance for code generation
+ */
+const spotifyProvider = new SpotifyProvider();
+
+/**
+ * Generate Spotify code URL from Spotify URI
+ */
+export function getSpotifyCodeUrl(spotifyUri: string, options?: SpotifyCodeOptions): string {
+	return spotifyProvider.buildSpotifyCodeUrl(spotifyUri, options);
+}
+
+/**
+ * Generate transparent Spotify code SVG (for design overlays)
+ */
+export async function getTransparentSpotifyCode(spotifyUri: string, barColor: 'white' | 'black' = 'white'): Promise<string> {
+	return spotifyProvider.downloadSpotifyCodeSvg(spotifyUri, {
+		transparent: true,
+		barColor,
+		format: 'svg',
+	});
+}
+
+/**
+ * Generate Spotify code URL from Spotify URL
+ */
+export function getSpotifyCodeFromUrl(spotifyUrl: string, options?: SpotifyCodeOptions): string {
+	const uri = spotifyProvider.urlToUri(spotifyUrl);
+	return spotifyProvider.buildSpotifyCodeUrl(uri, options);
+}
+
+/**
+ * Get Spotify code as buffer for canvas rendering
+ */
+export async function getSpotifyCodeBuffer(spotifyUri: string, options?: SpotifyCodeOptions): Promise<Buffer> {
+	return spotifyProvider.downloadSpotifyCodeBuffer(spotifyUri, options);
 }
