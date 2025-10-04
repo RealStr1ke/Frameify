@@ -3,14 +3,16 @@
  * Uses: Spotify provider, Cover fetcher, Label fetcher, Auto background
  */
 
-import { SpotifyProvider } from './src/integrations/providers/spotify';
-import { getBestAlbumCover } from './src/integrations/covers';
-import { LabelFetcher } from './src/integrations/label';
-import { PosterGenerator } from './src/poster-generator';
-import { Album1Design } from './src/designs/album-1';
-import { Song1Design } from './src/designs/song-1';
-import type { AlbumData, SongData } from './src/types';
+import {
+	Frameify,
+	Integrations,
+	Designs,
+	type AlbumData,
+	type SongData,
+} from './src';
 import { writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 async function generateAlbumPoster(url: string) {
 	console.log('🎵 Frameify - Album Poster Generation\n');
@@ -18,7 +20,7 @@ async function generateAlbumPoster(url: string) {
 
 	// Step 1: Fetch album data from Spotify
 	console.log('\n📀 Step 1: Fetching album data from Spotify...');
-	const spotifyProvider = new SpotifyProvider();
+	const spotifyProvider = new Integrations.Providers.Spotify();
 	const albumData = await spotifyProvider.fetchData(url);
 
 	console.log(`   ✅ Album: ${albumData.title}`);
@@ -28,7 +30,7 @@ async function generateAlbumPoster(url: string) {
 
 	// Step 2: Fetch high-res cover art
 	console.log('\n🖼️  Step 2: Fetching high-resolution cover art...');
-	const coverResult = await getBestAlbumCover(albumData.artist, albumData.title);
+	const coverResult = await Integrations.Fetch.getBestAlbumCover(albumData.artist, albumData.title);
 
 	let coverImagePath = albumData.coverImagePath;
 	if (coverResult) {
@@ -38,7 +40,7 @@ async function generateAlbumPoster(url: string) {
 		// Download the high-res cover
 		const response = await fetch(coverResult.bigCoverUrl);
 		const buffer = await response.arrayBuffer();
-		const coverPath = './covers/high-res-cover.jpg';
+		const coverPath = join(tmpdir(), 'frameify-cover.jpg');
 		await writeFile(coverPath, Buffer.from(buffer));
 		coverImagePath = coverPath;
 		console.log(`   ✅ Downloaded to: ${coverPath}`);
@@ -48,7 +50,7 @@ async function generateAlbumPoster(url: string) {
 
 	// Step 3: Fetch record label information
 	console.log('\n🏷️  Step 3: Fetching record label information...');
-	const labelFetcher = new LabelFetcher();
+	const labelFetcher = new Integrations.Fetch.Label();
 	const labelInfo = await labelFetcher.getLabel({
 		artist: albumData.artist,
 		album: albumData.title,
@@ -75,8 +77,8 @@ async function generateAlbumPoster(url: string) {
 	console.log('\n🎨 Step 4: Generating poster with auto background...');
 	const outputPath = './poster.png';
 
-	await PosterGenerator.create<AlbumData>()
-		.withDesign(new Album1Design({
+	await Frameify.create<AlbumData>()
+		.withDesign(new Designs.Album1({
 			textColor: '#ffffff',
 			dividerColor: '#ffffff',
 		}))
@@ -104,7 +106,7 @@ async function generateSongPoster(url: string) {
 
 	// Step 1: Fetch song data from Spotify (includes album data)
 	console.log('\n🎵 Step 1: Fetching song data from Spotify...');
-	const spotifyProvider = new SpotifyProvider();
+	const spotifyProvider = new Integrations.Providers.Spotify();
 	const trackData = await spotifyProvider.fetchTrackData(url);
 
 	if (!trackData.album) {
@@ -154,7 +156,7 @@ async function generateSongPoster(url: string) {
 
 	// Step 2: Fetch high-res cover art
 	console.log('\n🖼️  Step 2: Fetching high-resolution cover art...');
-	const coverResult = await getBestAlbumCover(songData.artist, songData.album || '');
+	const coverResult = await Integrations.Fetch.getBestAlbumCover(songData.artist, songData.album || '');
 
 	let coverImagePath = songData.coverImagePath;
 	if (coverResult) {
@@ -164,7 +166,7 @@ async function generateSongPoster(url: string) {
 		// Download the high-res cover
 		const response = await fetch(coverResult.bigCoverUrl);
 		const buffer = await response.arrayBuffer();
-		const coverPath = './covers/high-res-cover.jpg';
+		const coverPath = join(tmpdir(), 'frameify-cover.jpg');
 		await writeFile(coverPath, Buffer.from(buffer));
 		coverImagePath = coverPath;
 		console.log(`   ✅ Downloaded to: ${coverPath}`);
@@ -174,7 +176,7 @@ async function generateSongPoster(url: string) {
 
 	// Step 3: Fetch record label information
 	console.log('\n🏷️  Step 3: Fetching record label information...');
-	const labelFetcher = new LabelFetcher();
+	const labelFetcher = new Integrations.Fetch.Label();
 	const labelInfo = await labelFetcher.getLabel({
 		artist: songData.artist,
 		album: songData.album || '',
@@ -201,8 +203,8 @@ async function generateSongPoster(url: string) {
 	console.log('\n🎨 Step 4: Generating poster with auto background...');
 	const outputPath = './poster.png';
 
-	await PosterGenerator.create<SongData>()
-		.withDesign(new Song1Design({
+	await Frameify.create<SongData>()
+		.withDesign(new Designs.Song1({
 			textColor: '#ffffff',
 			dividerColor: '#ffffff',
 			iconColor: '#ffffff',
